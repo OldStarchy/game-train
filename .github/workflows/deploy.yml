@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy
 
 on:
   push:
@@ -7,15 +7,32 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# Never cancel a run part-way: it could interrupt a database migration.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
+  # Apply new database migrations before the app that depends on them ships.
+  # The database URL is an environment secret released only to `main`.
+  migrate:
+    runs-on: ubuntu-latest
+    environment: supabase-production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations
+        run: npx supabase db push --remote="$SUPABASE_DB_URL" --skip-vault --yes
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
   build:
+    needs: migrate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -35,6 +52,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
