@@ -53,7 +53,8 @@ changes, update this file in the same PR.
 | **Widget**       | A UI primitive a phone can render: text, buzzer, text input, choice, vote, colour/pattern flash, secret card, timer.      |
 | **View**         | What one device should be showing right now: a tree of widgets, computed by the engine per device.                        |
 
-Parties make "someone else hosts the next game" cheap: the new host creates a
+Parties are built with host handover (milestone 5); until then a room stands
+alone. Parties make "someone else hosts the next game" cheap: the new host creates a
 room in the same party and everyone's phone follows them there. Programmes are
 shareable data (link or file), so the new host can run any game.
 
@@ -138,12 +139,15 @@ A broadcast payload doesn't carry an authenticated sender, so **sender identity
 comes from the topic**, enforced by RLS: only player _u_ can send on
 `from:{u}`. Nobody can impersonate the host or another player.
 
-Open question for the networking milestone: per-player topics cost the host
-two channels per player against the 100-channels-per-connection limit, capping
-a room at ~45 players. That's plenty for a game, but if it ever isn't, the
-alternative is players inserting input rows into a table (RLS: `user_id =
-auth.uid()`) with a trigger broadcasting them to the host. Decide with a spike,
-not up front.
+Per-player topics cost the host two channels per player against the
+100-channels-per-connection limit, so rooms are capped at 40 members (pending
+and approved). That's plenty for a game. If it ever isn't, the alternative is
+players inserting input rows into a table (RLS: `user_id = auth.uid()`) with a
+trigger broadcasting them to the host.
+
+Only broadcast is allowed on these topics. Presence payloads are
+client-controlled, so the host tracks who's connected from their own
+messages instead.
 
 #### Transport interface
 
@@ -168,8 +172,8 @@ policy explicitly allows.
 
 - **Players** sign in anonymously: the device gets a stable user id with no
   sign-up. A player can do nothing until a host admits them to a room.
-- **Hosts** sign in with Discord or Twitch (Supabase OAuth). Creating parties
-  and rooms requires a non-anonymous user who is on the **host allow-list**
+- **Hosts** sign in with Discord (Supabase OAuth; Twitch later) or an emailed
+  sign-in link. Creating rooms requires a non-anonymous user who is on the **host allow-list**
   (`allowed_hosts`, managed in the Supabase dashboard). Hosting is invite-only
   until there's a reason to open it.
 - Anonymous sign-ins are protected by CAPTCHA to stop bots creating users
@@ -178,8 +182,12 @@ policy explicitly allows.
 **Authorization**
 
 - Every room-scoped table has a `room_id`; policies check membership in
-  `room_members` (`status = 'approved'`). Joining inserts a pending membership;
-  the host approves it, or the room is set to auto-approve.
+  `room_members` (`status = 'approved'`). Joining goes through the
+  `request_join(code)` function, which inserts a pending membership; the host
+  approves it, or the room is set to auto-approve. Rooms can't be listed or
+  looked up by anyone but their host and members.
+- Membership changes (join requests, approvals, kicks) reach the host and
+  players through Postgres Changes, which applies the same select policies.
 - Realtime topic policies use the same membership rows (see _Channel layout
   and trust_).
 - Tables are not exposed to the API by default: each migration explicitly
@@ -187,19 +195,23 @@ policy explicitly allows.
 
 **Abuse limits.** Because persistence is reachable from a public client:
 
-- Every user-writable column has a size limit (check constraints), and
-  per-room row counts are capped.
+- Every user-writable column has a size limit (check constraints). A host can
+  have at most 5 unfinished rooms; a room at most 40 members.
 - No file uploads until a feature needs them; avatars start as generated
   images or emoji, not uploads.
-- Data is short-lived. Rooms, their state snapshots and stale anonymous users
-  are deleted after a retention period (scheduled cleanup in Postgres).
+- Data is short-lived. An hourly `pg_cron` job deletes rooms idle for 24
+  hours (with their memberships and, later, snapshots) and anonymous users
+  older than 30 days who aren't in a room.
   Saved programmes belong to hosts and are the only long-lived data.
 
 **Moderation.** Groups are self-moderating, with the host as moderator of
 their room:
 
-- Kick or ban a player (removes or blocks their membership; RLS then refuses
-  their channel joins), rename them, and hide or clear their submitted text.
+- Kick or ban a player, rename them, and hide or clear their submitted text.
+  A kick changes the membership row; Realtime evaluates policies when a
+  channel is joined, so the host also stops sending to the player and tells
+  their device to leave, and any rejoin is refused. A banned player can't ask
+  to join again, even by leaving first.
 - Public-facing inputs (audience votes, free text shown on a screen) are off by
   default and must be enabled per room.
 
@@ -343,8 +355,8 @@ Dependency rules (enforced by lint):
 ## Milestones
 
 1. **Skeleton:** tooling, CI, Pages deploy, role routes, design doc.
-2. **Networking + lobby:** anonymous auth for players, Discord/Twitch sign-in
-   and allow-list for hosts, profiles, parties/rooms/membership tables with
+2. **Networking + lobby:** anonymous auth for players, Discord or email-link
+   sign-in and allow-list for hosts, profiles, rooms/membership tables with
    RLS and size limits, private channels, transport implementations, QR join
    with host approval, roster, kick, reconnect, wake lock, clock calibration,
    retention cleanup.
@@ -352,7 +364,8 @@ Dependency rules (enforced by lint):
    playable game night.
 4. **Engine + first preset:** the category board ("Old West for $200").
 5. **Presets and wizards:** buzzer quiz, Noise Boys, prompt-and-vote;
-   programme save/share; screen and audience roles; host handover.
+   programme save/share; screen and audience roles; parties and host
+   handover; Twitch sign-in.
 6. **AI-assisted authoring:** bring-your-own-key assistant for programme
    editing, then declarative custom screens, then the sandboxed code tier.
 
@@ -370,3 +383,8 @@ Dependency rules (enforced by lint):
 | 2026-11-12 | Host moderates their room; public-facing inputs are opt-in; user data is size-limited and short-lived.             |
 | 2026-11-12 | In-app AI assistant using the host's own API key; edits are validated `ProgrammeEdit` commands.                    |
 | 2026-11-12 | User/AI-written rendering code only ever runs in a sandboxed iframe.                                               |
+| 2026-11-12 | Parties deferred to host handover (milestone 5); rooms stand alone until then.                                     |
+| 2026-11-12 | Limits: 5 open rooms per host, 40 members per room, rooms purged after 24 h idle, anonymous users after 30 days.   |
+| 2026-11-12 | Realtime topics allow broadcast only (no presence); membership changes use Postgres Changes.                       |
+| 2026-11-12 | Emailed sign-in link as a host sign-in method alongside Discord; it needs no third-party setup.                    |
+| 2026-11-12 | Database policies are tested against embedded Postgres (PGlite) with a shim for Supabase's auth/realtime schemas.  |
