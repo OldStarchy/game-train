@@ -1,4 +1,5 @@
 import {
+	lazyRouteComponent,
 	createHashHistory,
 	createRootRoute,
 	createRoute,
@@ -6,8 +7,8 @@ import {
 	Outlet,
 } from '@tanstack/react-router';
 import { JoinCodeSchema, type JoinCode } from '../protocol/role';
+import { RoomIdSchema } from '../protocol/topics';
 import { AudienceRoute } from '../roles/audience/AudienceRoute';
-import { HostRoute } from '../roles/host/HostRoute';
 import { PlayerRoute } from '../roles/player/PlayerRoute';
 import { ScreenRoute } from '../roles/screen/ScreenRoute';
 import { Home } from './Home';
@@ -35,7 +36,19 @@ const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', comp
 const hostRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: '/host',
-	component: HostRoute,
+	// Host screens load on demand so players' phones download less.
+	component: lazyRouteComponent(() => import('../roles/host/HostRoute'), 'HostRoute'),
+});
+
+export const hostRoomRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: '/host/room/$roomId',
+	params: {
+		parse: ({ roomId }: { roomId: string }) => ({ roomId: RoomIdSchema.parse(roomId) }),
+		stringify: ({ roomId }: { roomId: string }) => ({ roomId }),
+	},
+	errorComponent: NotFound,
+	component: lazyRouteComponent(() => import('../roles/host/HostRoomRoute'), 'HostRoomRoute'),
 });
 
 export const joinRoute = createRoute({
@@ -65,6 +78,7 @@ export const audienceRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
 	homeRoute,
 	hostRoute,
+	hostRoomRoute,
 	joinRoute,
 	screenRoute,
 	audienceRoute,

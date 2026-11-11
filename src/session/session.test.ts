@@ -104,6 +104,22 @@ describe('host and device sessions', () => {
 		expect(alice.getSnapshot().view?.message).toBe('missed');
 	});
 
+	it('shows new members the initial view', async () => {
+		const network = new MemoryNetwork();
+		const host = new HostSession(network.transportFor(HOST).host(ROOM), {
+			now: () => Date.now(),
+			initialView: { screen: 'lobby', message: 'Welcome' },
+		});
+		host.start();
+		const alice = new DeviceSession(network.transportFor(ALICE).device(ROOM, ALICE), {
+			now: () => Date.now(),
+		});
+		alice.start();
+		host.setMembers([member(ALICE, 'Alice')]);
+		await advance(100);
+		expect(alice.getSnapshot().view).toEqual({ screen: 'lobby', message: 'Welcome' });
+	});
+
 	it('ignores messages from devices that are not members', async () => {
 		const { host, device } = setup();
 		host.start();
