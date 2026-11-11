@@ -1,5 +1,5 @@
 import { useState, type SubmitEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { JoinCodeSchema } from '../protocol/role';
 
 export function Home() {
@@ -9,7 +9,7 @@ export function Home() {
 
 	function onSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		if (parsed.success) void navigate(`/join/${parsed.data}`);
+		if (parsed.success) void navigate({ to: '/join/$code', params: { code: parsed.data } });
 	}
 
 	return (

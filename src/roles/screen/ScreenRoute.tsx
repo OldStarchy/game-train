@@ -1,11 +1,13 @@
-import { useParams } from 'react-router';
+import { getRouteApi } from '@tanstack/react-router';
+
+const route = getRouteApi('/screen/$code');
 
 export function ScreenRoute() {
-	const { code } = useParams();
+	const { code } = route.useParams();
 	return (
 		<main className="page">
 			<h1>Screen</h1>
-			<p>{code ? `Room ${code}` : 'No room yet.'} Coming in a later milestone.</p>
+			<p>Room {code}. Coming in a later milestone.</p>
 		</main>
 	);
 }
