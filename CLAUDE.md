@@ -25,6 +25,11 @@ in the same PR.
   its Zod schema in the transport layer before anything else touches it.
 - **Per-device views.** Never broadcast state that contains information
   meant for one device. The engine computes views per device.
+- **Access control lives in the database.** Every table enables RLS, gets
+  explicit grants, and limits the size of user-writable columns. Never use the
+  service role key in the app. See `supabase/README.md`.
+- **Secrets stay on the device.** A user's API key is never put in programmes,
+  exports, snapshots or anything sent over the network.
 - **Programmes are data.** Changing the programme schema means bumping
   `schemaVersion` and adding a migration.
 - **Types.** TypeScript strict. No `any`; prefer discriminated unions with
