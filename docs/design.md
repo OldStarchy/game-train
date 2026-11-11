@@ -183,8 +183,9 @@ policy explicitly allows.
   sign-in link. Creating rooms requires a non-anonymous user who is on the **host allow-list**
   (`allowed_hosts`, managed in the Supabase dashboard). Hosting is invite-only
   until there's a reason to open it.
-- Anonymous sign-ins are protected by CAPTCHA to stop bots creating users
-  in bulk.
+- Anonymous sign-ins are to be protected by CAPTCHA (Cloudflare Turnstile) to
+  stop bots creating users in bulk. Not yet enabled: it needs a Turnstile site
+  key; until then Supabase's per-IP limit on anonymous sign-ins applies.
 
 **Authorization**
 
@@ -330,6 +331,8 @@ src/
   engine/       pure game logic. No React, DOM, network, Date.now or Math.random.
     segments/   one folder per segment type
   protocol/     message and view types + Zod schemas shared by all roles
+  backend/      Supabase client, auth, and typed database queries (rooms,
+                membership, profiles). No React.
   transport/    Transport interface, Supabase and memory implementations
   session/      connection protocol over a transport: hello, heartbeats, clock
                 calibration, roster and connection tracking. No React.
@@ -348,6 +351,8 @@ Dependency rules (enforced by lint):
 - `protocol` imports only from `protocol`, `lib`.
 - `transport` doesn't import from `engine`, `session`, `widgets` or `roles`.
 - `session` imports from `protocol`, `transport` and `lib` only.
+- `backend` imports from `protocol` and `lib` only; the app wires it to the
+  transport and UI.
 - `widgets` doesn't import from `roles` or `engine`.
 
 ## Stack
@@ -381,21 +386,24 @@ Dependency rules (enforced by lint):
 
 ## Decision log
 
-| Date       | Decision                                                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| 2026-11-11 | Supabase Realtime from the start instead of PeerJS, for remote play and audiences.                                 |
-| 2026-11-11 | Host-authoritative engine in the browser, with state persisted to Supabase (host lease) for recovery and handover. |
-| 2026-11-11 | Shared screen is optional by default.                                                                              |
-| 2026-11-11 | Buzzers use calibrated host-time timestamps plus a judging window, with an arrival-order mode for untrusted games. |
-| 2026-11-11 | Single package; folder boundaries enforced by lint.                                                                |
-| 2026-11-12 | TanStack Router instead of React Router, for schema-validated, type-safe route params.                             |
-| 2026-11-12 | Players anonymous; hosts sign in with Discord/Twitch; hosting invite-only via an allow-list.                       |
-| 2026-11-12 | Host moderates their room; public-facing inputs are opt-in; user data is size-limited and short-lived.             |
-| 2026-11-12 | In-app AI assistant using the host's own API key; edits are validated `ProgrammeEdit` commands.                    |
-| 2026-11-12 | User/AI-written rendering code only ever runs in a sandboxed iframe.                                               |
-| 2026-11-12 | Parties deferred to host handover (milestone 5); rooms stand alone until then.                                     |
-| 2026-11-12 | Limits: 5 open rooms per host, 40 members per room, rooms purged after 24 h idle, anonymous users after 30 days.   |
-| 2026-11-12 | Realtime topics allow broadcast only (no presence); membership changes use Postgres Changes.                       |
-| 2026-11-12 | Emailed sign-in link as a host sign-in method alongside Discord; it needs no third-party setup.                    |
-| 2026-11-12 | A `session` layer holds the connection protocol, separate from transports and UI.                                  |
-| 2026-11-12 | Database policies are tested against embedded Postgres (PGlite) with a shim for Supabase's auth/realtime schemas.  |
+| Date       | Decision                                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-11 | Supabase Realtime from the start instead of PeerJS, for remote play and audiences.                                                                 |
+| 2026-11-11 | Host-authoritative engine in the browser, with state persisted to Supabase (host lease) for recovery and handover.                                 |
+| 2026-11-11 | Shared screen is optional by default.                                                                                                              |
+| 2026-11-11 | Buzzers use calibrated host-time timestamps plus a judging window, with an arrival-order mode for untrusted games.                                 |
+| 2026-11-11 | Single package; folder boundaries enforced by lint.                                                                                                |
+| 2026-11-12 | TanStack Router instead of React Router, for schema-validated, type-safe route params.                                                             |
+| 2026-11-12 | Players anonymous; hosts sign in with Discord/Twitch; hosting invite-only via an allow-list.                                                       |
+| 2026-11-12 | Host moderates their room; public-facing inputs are opt-in; user data is size-limited and short-lived.                                             |
+| 2026-11-12 | In-app AI assistant using the host's own API key; edits are validated `ProgrammeEdit` commands.                                                    |
+| 2026-11-12 | User/AI-written rendering code only ever runs in a sandboxed iframe.                                                                               |
+| 2026-11-12 | Parties deferred to host handover (milestone 5); rooms stand alone until then.                                                                     |
+| 2026-11-12 | Limits: 5 open rooms per host, 40 members per room, rooms purged after 24 h idle, anonymous users after 30 days.                                   |
+| 2026-11-12 | Realtime topics allow broadcast only (no presence); membership changes use Postgres Changes.                                                       |
+| 2026-11-12 | Emailed sign-in link as a host sign-in method alongside Discord; it needs no third-party setup.                                                    |
+| 2026-11-12 | A `session` layer holds the connection protocol, separate from transports and UI.                                                                  |
+| 2026-11-12 | A `backend` layer holds Supabase auth and queries; `database.types.ts` is hand-written until type generation runs in CI.                           |
+| 2026-11-12 | Sign-in redirects use PKCE (`?code=`) to the site root, which avoids clashing with hash routing; the app returns to the page that started sign-in. |
+| 2026-11-12 | Host screens are lazy-loaded so players' phones download less.                                                                                     |
+| 2026-11-12 | Database policies are tested against embedded Postgres (PGlite) with a shim for Supabase's auth/realtime schemas.                                  |
