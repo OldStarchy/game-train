@@ -280,19 +280,35 @@ describe('visibility', () => {
 			expect(await db.canReceive(outsider, t('public'))).toBe(false);
 		});
 
-		it('to:{uid}: only the host sends and only that member receives', async () => {
+		// Realtime requires read permission to join a channel at all, so the
+		// sender on each one-way topic must also be able to read it.
+		it('to:{uid}: only the host sends; only the host and that member can join', async () => {
 			expect(await db.canSend(host, t('to', alice.id))).toBe(true);
 			expect(await db.canSend(bob, t('to', alice.id))).toBe(false);
+			expect(await db.canSend(alice, t('to', alice.id))).toBe(false);
 			expect(await db.canReceive(alice, t('to', alice.id))).toBe(true);
+			expect(await db.canReceive(host, t('to', alice.id))).toBe(true);
 			expect(await db.canReceive(bob, t('to', alice.id))).toBe(false);
+			expect(await db.canReceive(pending, t('to', pending.id))).toBe(false);
 		});
 
-		it('from:{uid}: only that member sends and only the host receives', async () => {
+		it('from:{uid}: only that member sends; only the host and that member can join', async () => {
 			expect(await db.canSend(alice, t('from', alice.id))).toBe(true);
 			expect(await db.canSend(bob, t('from', alice.id))).toBe(false);
+			expect(await db.canSend(host, t('from', alice.id))).toBe(false);
 			expect(await db.canSend(pending, t('from', pending.id))).toBe(false);
 			expect(await db.canReceive(host, t('from', alice.id))).toBe(true);
+			expect(await db.canReceive(alice, t('from', alice.id))).toBe(true);
 			expect(await db.canReceive(bob, t('from', alice.id))).toBe(false);
+			expect(await db.canReceive(pending, t('from', pending.id))).toBe(false);
+		});
+
+		it('every topic a party needs is joinable by it', async () => {
+			// The topics each role's link opens (see src/transport/supabase.ts).
+			for (const topic of [t('public'), t('to', alice.id), t('from', alice.id)]) {
+				expect(await db.canReceive(host, topic), `host ${topic}`).toBe(true);
+				expect(await db.canReceive(alice, topic), `alice ${topic}`).toBe(true);
+			}
 		});
 
 		it('kicked members lose access', async () => {

@@ -135,6 +135,10 @@ each topic; see the
 | `room:{id}:from:{u}` | receive | send (only _u_)    | —                 |
 | `room:{id}:audience` | receive | —                  | send              |
 
+Realtime checks **read** permission when a client joins any channel, so the
+sender on a one-way topic (the host on `to:{u}`, player _u_ on `from:{u}`) can
+also read it. That exposes nothing: the only messages there are its own.
+
 A broadcast payload doesn't carry an authenticated sender, so **sender identity
 comes from the topic**, enforced by RLS: only player _u_ can send on
 `from:{u}`. Nobody can impersonate the host or another player.
@@ -407,3 +411,4 @@ Dependency rules (enforced by lint):
 | 2026-11-12 | Sign-in redirects use PKCE (`?code=`) to the site root, which avoids clashing with hash routing; the app returns to the page that started sign-in. |
 | 2026-11-12 | Host screens are lazy-loaded so players' phones download less.                                                                                     |
 | 2026-11-12 | Database policies are tested against embedded Postgres (PGlite) with a shim for Supabase's auth/realtime schemas.                                  |
+| 2026-11-26 | Senders can also read their one-way topics: Realtime requires read permission to join a channel.                                                   |
