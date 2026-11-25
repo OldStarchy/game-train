@@ -128,12 +128,13 @@ Channels are **private** (Realtime Authorization). RLS policies on
 each topic; see the
 [authorization docs](https://supabase.com/docs/guides/realtime/authorization).
 
-| Topic                | Host    | Player _u_         | Screen / audience |
-| -------------------- | ------- | ------------------ | ----------------- |
-| `room:{id}:public`   | send    | receive            | receive           |
-| `room:{id}:to:{u}`   | send    | receive (only _u_) | —                 |
-| `room:{id}:from:{u}` | receive | send (only _u_)    | —                 |
-| `room:{id}:audience` | receive | —                  | send              |
+| Topic                | Host    | Player _u_               | Screen / audience |
+| -------------------- | ------- | ------------------------ | ----------------- |
+| `room:{id}:public`   | send    | receive                  | receive           |
+| `room:{id}:to:{u}`   | send    | receive (only _u_)       | —                 |
+| `room:{id}:from:{u}` | receive | send (only _u_)          | —                 |
+| `room:{id}:audience` | receive | —                        | send              |
+| `room:{id}:members`  | receive | receive (any membership) | —                 |
 
 Realtime checks **read** permission when a client joins any channel, so the
 sender on a one-way topic (the host on `to:{u}`, player _u_ on `from:{u}`) can
@@ -412,3 +413,4 @@ Dependency rules (enforced by lint):
 | 2026-11-12 | Host screens are lazy-loaded so players' phones download less.                                                                                     |
 | 2026-11-12 | Database policies are tested against embedded Postgres (PGlite) with a shim for Supabase's auth/realtime schemas.                                  |
 | 2026-11-26 | Senders can also read their one-way topics: Realtime requires read permission to join a channel.                                                   |
+| 2026-11-26 | Membership change notifications use the private `room:{id}:members` topic, so they work with public access off.                                    |

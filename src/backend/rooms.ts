@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Client } from './client';
 import type { MemberRow, MemberStatus, ProfileRow, RoomRow } from './database.types';
+import { topics } from '../protocol/topics';
 import { toBackendError } from './errors';
 
 export interface Profile {
@@ -190,8 +191,9 @@ export function watchMembers(
 	roomId: string,
 	onChange: () => void,
 ): () => Promise<void> {
+	// Private: projects with Realtime public access off refuse public channels.
 	const channel: RealtimeChannel = client
-		.channel(`members:${roomId}`)
+		.channel(topics.members(roomId), { config: { private: true } })
 		.on(
 			'postgres_changes',
 			{ event: '*', schema: 'public', table: 'room_members', filter: `room_id=eq.${roomId}` },

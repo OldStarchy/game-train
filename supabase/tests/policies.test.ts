@@ -311,6 +311,16 @@ describe('visibility', () => {
 			}
 		});
 
+		it('members: host and anyone with a membership can join; nobody sends', async () => {
+			const topic = t('members');
+			expect(await db.canReceive(host, topic)).toBe(true);
+			expect(await db.canReceive(alice, topic)).toBe(true);
+			expect(await db.canReceive(pending, topic)).toBe(true);
+			expect(await db.canReceive(outsider, topic)).toBe(false);
+			expect(await db.canSend(host, topic)).toBe(false);
+			expect(await db.canSend(alice, topic)).toBe(false);
+		});
+
 		it('kicked members lose access', async () => {
 			await setStatus(host, room.id, alice, 'kicked');
 			expect(await db.canReceive(alice, t('public'))).toBe(false);

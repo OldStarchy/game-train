@@ -7,6 +7,7 @@ import { z } from 'zod';
  *   room:{roomId}:public      host → everyone in the room
  *   room:{roomId}:to:{uid}    host → one member
  *   room:{roomId}:from:{uid}  one member → host (sender identity = topic)
+ *   room:{roomId}:members     membership change notifications (Postgres Changes)
  */
 export const UserIdSchema = z.uuid();
 export type UserId = z.infer<typeof UserIdSchema>;
@@ -18,6 +19,7 @@ export const topics = {
 	public: (roomId: RoomId) => `room:${roomId}:public`,
 	to: (roomId: RoomId, userId: UserId) => `room:${roomId}:to:${userId}`,
 	from: (roomId: RoomId, userId: UserId) => `room:${roomId}:from:${userId}`,
+	members: (roomId: RoomId) => `room:${roomId}:members`,
 } as const;
 
 /** The broadcast event name all game messages are sent under. */
