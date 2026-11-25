@@ -63,6 +63,26 @@ join, see profiles, and send or receive on each realtime topic.
 `tests/supabase-shim.sql` stands in for Supabase's `auth` and `realtime`
 schemas. They run with the rest of the tests (`npm test`).
 
+## Host sign-in
+
+Hosts sign in with an emailed link or with Discord. Both return to the site
+root, so the project's auth settings must allow it.
+
+1. **Authentication → URL Configuration**
+   - _Site URL_: `https://oldstarchy.github.io/game-train/`
+   - _Redirect URLs_: add `https://oldstarchy.github.io/game-train/` and
+     `http://localhost:5173/game-train/` (for local development).
+2. **Email link** works without further setup. Supabase's built-in email
+   sender is meant for testing: it has a low hourly limit and may only deliver
+   to members of your Supabase organisation. That's fine for you; set up
+   custom SMTP before inviting other hosts.
+3. **Discord** (optional):
+   - In the [Discord developer portal](https://discord.com/developers/applications),
+     create an application. Under _OAuth2_, add the redirect
+     `https://kwoyjntpkezbwwyhfmny.supabase.co/auth/v1/callback`.
+   - Copy its client id and client secret into **Authentication → Sign In /
+     Providers → Discord** and enable it.
+
 ## Adding a host
 
 Hosting is invite-only. Once someone has signed in on the host page, add them

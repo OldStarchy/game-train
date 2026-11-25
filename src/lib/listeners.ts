@@ -16,6 +16,10 @@ export class Listeners<Args extends unknown[]> {
 		for (const handler of [...this.handlers]) handler(...args);
 	}
 
+	get size(): number {
+		return this.handlers.size;
+	}
+
 	clear(): void {
 		this.handlers.clear();
 	}

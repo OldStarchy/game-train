@@ -26,6 +26,8 @@ export interface HostSessionOptions {
 	/** Silence after which a member counts as disconnected. Default: three heartbeats. */
 	connectionTimeoutMs?: number;
 	connectionCheckMs?: number;
+	/** Shown to members as soon as they're added, until the host sets another view. */
+	initialView?: View;
 }
 
 /**
@@ -82,9 +84,14 @@ export class HostSession {
 				this.views.delete(id);
 			}
 		}
+		const added = [...next.keys()].filter((id) => !this.members.has(id));
 		this.members.clear();
 		for (const [id, member] of next) this.members.set(id, member);
 		this.link.setMembers(next.keys());
+		const initial = this.options.initialView;
+		if (initial) {
+			for (const id of added) if (!this.views.has(id)) this.setView(id, initial);
+		}
 		this.publishRoster();
 	}
 

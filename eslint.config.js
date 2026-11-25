@@ -9,12 +9,13 @@ import tseslint from 'typescript-eslint';
  * Each entry lists the src/ layers a layer must NOT import from.
  */
 const layers = {
-	engine: ['transport', 'session', 'widgets', 'roles', 'app'],
-	protocol: ['engine', 'transport', 'session', 'widgets', 'roles', 'app'],
-	transport: ['engine', 'session', 'widgets', 'roles', 'app'],
-	session: ['engine', 'widgets', 'roles', 'app'],
-	widgets: ['engine', 'transport', 'session', 'roles', 'app'],
-	lib: ['engine', 'protocol', 'transport', 'session', 'widgets', 'roles', 'app'],
+	engine: ['backend', 'transport', 'session', 'widgets', 'roles', 'app'],
+	protocol: ['engine', 'backend', 'transport', 'session', 'widgets', 'roles', 'app'],
+	backend: ['engine', 'transport', 'session', 'widgets', 'roles', 'app'],
+	transport: ['engine', 'backend', 'session', 'widgets', 'roles', 'app'],
+	session: ['engine', 'backend', 'widgets', 'roles', 'app'],
+	widgets: ['engine', 'backend', 'transport', 'session', 'roles', 'app'],
+	lib: ['engine', 'protocol', 'backend', 'transport', 'session', 'widgets', 'roles', 'app'],
 };
 
 const boundaryConfigs = Object.entries(layers).map(([layer, forbidden]) => ({
