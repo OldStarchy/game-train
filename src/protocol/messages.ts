@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import { UserIdSchema } from './topics';
+import {
+	PromptIdSchema,
+	WidgetInputSchema,
+	WidgetSpecSchema,
+	WidgetStateSchema,
+} from './widgetSchemas';
 
 /**
  * Messages exchanged over realtime topics. Every inbound message is parsed
@@ -7,7 +13,7 @@ import { UserIdSchema } from './topics';
  * Limits on strings and arrays bound the work a malicious peer can cause.
  */
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 const timestamp = z.number().nonnegative();
 const shortText = (max: number) => z.string().max(max);
@@ -32,10 +38,18 @@ export const PingSchema = z.object({
 /** The device is leaving deliberately (tab closed, left the room). */
 export const ByeSchema = z.object({ type: z.literal('bye') });
 
+/** A response to the widget the device is showing. */
+export const InputSchema = z.object({
+	type: z.literal('input'),
+	promptId: PromptIdSchema,
+	input: WidgetInputSchema,
+});
+
 export const DeviceMessageSchema = z.discriminatedUnion('type', [
 	HelloSchema,
 	PingSchema,
 	ByeSchema,
+	InputSchema,
 ]);
 export type DeviceMessage = z.infer<typeof DeviceMessageSchema>;
 
@@ -55,12 +69,15 @@ export const KickedSchema = z.object({
 	banned: z.boolean(),
 });
 
-/**
- * What the device should show. Milestone 2 has only lobby screens; the widget
- * view tree (docs/design.md, "Concepts") extends this in milestone 3.
- */
+/** What the device should show. */
 export const ViewSchema = z.discriminatedUnion('screen', [
 	z.object({ screen: z.literal('lobby'), message: shortText(200).optional() }),
+	z.object({
+		screen: z.literal('widget'),
+		promptId: PromptIdSchema,
+		widget: WidgetSpecSchema,
+		state: WidgetStateSchema,
+	}),
 ]);
 export type View = z.infer<typeof ViewSchema>;
 
@@ -101,9 +118,15 @@ export const RoomStateSchema = z.object({
 	status: z.enum(['lobby', 'playing', 'ended']),
 });
 
+export const ScoresSchema = z.object({
+	type: z.literal('scores'),
+	scores: z.array(z.object({ userId: UserIdSchema, score: z.number().int() })).max(40),
+});
+
 export const HostBroadcastMessageSchema = z.discriminatedUnion('type', [
 	RosterSchema,
 	RoomStateSchema,
+	ScoresSchema,
 ]);
 export type HostBroadcastMessage = z.infer<typeof HostBroadcastMessageSchema>;
 

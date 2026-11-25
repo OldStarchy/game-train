@@ -380,8 +380,11 @@ Dependency rules (enforced by lint):
    RLS and size limits, private channels, transport implementations, QR join
    with host approval, roster, kick, reconnect, wake lock, clock calibration,
    retention cleanup.
-3. **Manual mode:** widget set, host pushes widgets, scoreboard, undo. First
-   playable game night.
+3. **Manual mode** (done): widgets (message, buzzer, text answer, multiple
+   choice, colour flash), pushed to everyone or chosen players; live
+   responses; buzzer judging; scoreboard; undo. First playable game night.
+   Game state is saved on the host device only; saving it to Supabase comes
+   with host handover.
 4. **Engine + first preset:** the category board ("Old West for $200").
 5. **Presets and wizards:** buzzer quiz, Noise Boys, prompt-and-vote;
    programme save/share; screen and audience roles; parties and host
@@ -414,3 +417,7 @@ Dependency rules (enforced by lint):
 | 2026-11-12 | Database policies are tested against embedded Postgres (PGlite) with a shim for Supabase's auth/realtime schemas.                                  |
 | 2026-11-26 | Senders can also read their one-way topics: Realtime requires read permission to join a channel.                                                   |
 | 2026-11-26 | Membership change notifications use the private `room:{id}:members` topic, so they work with public access off.                                    |
+| 2026-11-26 | Manual mode is the first segment type (`engine/segments/manual`). Undo reverts host actions only, never players' answers.                          |
+| 2026-11-26 | Buzz timestamps are clamped to [buzzer opened, press arrived], so a tampered device can't claim an impossible time.                                |
+| 2026-11-26 | Host game state is saved in the host browser's local storage until the host lease (Supabase snapshot) exists.                                      |
+| 2026-11-26 | Colour-flash strobe is capped at 2.5 flashes/s (under WCAG 2.3.1's 3/s) and respects reduced motion.                                               |

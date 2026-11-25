@@ -7,6 +7,7 @@ import {
 } from '../protocol/messages';
 import type { DeviceLink, LinkState, Unsubscribe } from '../transport/types';
 import { Listeners } from '../lib/listeners';
+import type { WidgetInput } from '../protocol/widgetSchemas';
 
 export interface DeviceSnapshot {
 	link: LinkState;
@@ -15,6 +16,7 @@ export interface DeviceSnapshot {
 	view: View | undefined;
 	kicked: { banned: boolean } | undefined;
 	clock: ClockEstimate | undefined;
+	scores: ReadonlyMap<string, number>;
 }
 
 export interface DeviceSessionOptions {
@@ -62,6 +64,7 @@ export class DeviceSession {
 			view: undefined,
 			kicked: undefined,
 			clock: undefined,
+			scores: new Map(),
 		};
 	}
 
@@ -87,6 +90,15 @@ export class DeviceSession {
 	/** The host's clock now, as best this device can tell. */
 	hostNow(): number {
 		return this.options.now() + (this.snapshot.clock?.offset ?? 0);
+	}
+
+	/**
+	 * Respond to the widget currently shown. A buzz is stamped with the host's
+	 * clock as calibrated, so presses are judged fairly across network delays.
+	 */
+	sendInput(promptId: number, input: WidgetInput | { kind: 'buzz' }): void {
+		const full: WidgetInput = input.kind === 'buzz' ? { kind: 'buzz', at: this.hostNow() } : input;
+		void this.link.send({ type: 'input', promptId, input: full }).catch(() => undefined);
 	}
 
 	async stop(): Promise<void> {
@@ -157,6 +169,9 @@ export class DeviceSession {
 				return;
 			case 'room':
 				this.update({ room: { name: message.name, status: message.status } });
+				return;
+			case 'scores':
+				this.update({ scores: new Map(message.scores.map((s) => [s.userId, s.score])) });
 				return;
 			case 'kicked':
 				this.update({ kicked: { banned: message.banned } });

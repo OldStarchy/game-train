@@ -11,6 +11,8 @@ import { useAuthUser } from '../../app/hooks/useAuthUser';
 import { joinUrl } from '../../app/joinUrl';
 import { useServices } from '../../app/services';
 import { ConnectionBanner, errorMessage } from '../shared/messages';
+import { ManualPanel } from './ManualPanel';
+import { useManualGame } from './useManualGame';
 import { useRoomMembers } from './useRoomMembers';
 
 const route = getRouteApi('/host/room/$roomId');
@@ -97,22 +99,31 @@ function RoomControl({
 	const snap = useSyncExternalStore(store.subscribe, store.getSnapshot);
 	const [actionError, setActionError] = useState<string | undefined>(undefined);
 	const [confirmEnd, setConfirmEnd] = useState(false);
+	// The join card is open until people have joined; then it folds away to make
+	// room for the game, unless the host opens it again.
+	const [joinOpen, setJoinOpen] = useState<boolean | undefined>(undefined);
 	// A ban can't be undone from here, so it takes a second tap.
 	const [confirmBan, setConfirmBan] = useState<string | undefined>(undefined);
 
 	const approved = useMemo(() => members?.filter((m) => m.status === 'approved') ?? [], [members]);
 	const pending = useMemo(() => members?.filter((m) => m.status === 'pending') ?? [], [members]);
-
-	// Keep the session's members and room state in step with the database.
-	useEffect(() => {
-		store.current?.setMembers(
+	const approvedIds = useMemo(() => approved.map((m) => m.userId), [approved]);
+	const players = useMemo(
+		() =>
 			approved.map((m) => ({
 				userId: m.userId,
 				name: m.profile?.name ?? 'Player',
 				avatar: m.profile?.avatar ?? null,
 			})),
-		);
-	}, [store, approved]);
+		[approved],
+	);
+	// Keep the session's members in step with the database. Declared before the
+	// game hook so new members' channels exist before their first view is sent.
+	useEffect(() => {
+		store.current?.setMembers(players);
+	}, [store, players]);
+
+	const game = useManualGame(room.id, store, approvedIds);
 
 	useEffect(() => {
 		store.current?.setRoom({ name: room.name, status: room.status });
@@ -157,7 +168,25 @@ function RoomControl({
 				</p>
 			)}
 
-			{!ended && (
+			{!ended && !(joinOpen ?? approved.length === 0) && (
+				<section className="join-bar">
+					<p>
+						<span className="muted">Join code </span>
+						<strong className="code-inline">{room.code}</strong>
+					</p>
+					<button
+						type="button"
+						className="secondary small"
+						onClick={() => {
+							setJoinOpen(true);
+						}}
+					>
+						Show QR
+					</button>
+				</section>
+			)}
+
+			{!ended && (joinOpen ?? approved.length === 0) && (
 				<section className="join-card">
 					<QrCode value={url} />
 					<div className="stack">
@@ -184,6 +213,17 @@ function RoomControl({
 							/>
 							Let players in without approval
 						</label>
+						{approved.length > 0 && (
+							<button
+								type="button"
+								className="link"
+								onClick={() => {
+									setJoinOpen(false);
+								}}
+							>
+								Hide
+							</button>
+						)}
 					</div>
 				</section>
 			)}
@@ -211,6 +251,10 @@ function RoomControl({
 				</section>
 			)}
 
+			{!ended && approved.length > 0 && (
+				<ManualPanel state={game.state} dispatch={game.dispatch} players={players} />
+			)}
+
 			<section className="stack">
 				<h2>Players ({approved.length})</h2>
 				{approved.length === 0 && <p className="muted">No one has joined yet.</p>}
@@ -225,16 +269,49 @@ function RoomControl({
 									title={p.connected ? 'Connected' : 'Not connected'}
 								/>
 								<MemberName member={m} />
+								<span className="score-controls">
+									<button
+										type="button"
+										className="secondary small"
+										aria-label={`Take a point from ${m.profile?.name ?? 'player'}`}
+										onClick={() => {
+											game.dispatch({
+												type: 'award',
+												userId: m.userId,
+												points: -1,
+												label: `-1 ${m.profile?.name ?? 'player'}`,
+											});
+										}}
+									>
+										−
+									</button>
+									<span className="score">{game.state.scores[m.userId] ?? 0}</span>
+									<button
+										type="button"
+										className="secondary small"
+										aria-label={`Give a point to ${m.profile?.name ?? 'player'}`}
+										onClick={() => {
+											game.dispatch({
+												type: 'award',
+												userId: m.userId,
+												points: 1,
+												label: `+1 ${m.profile?.name ?? 'player'}`,
+											});
+										}}
+									>
+										+
+									</button>
+								</span>
 								<button
 									type="button"
-									className="secondary"
+									className="secondary small"
 									onClick={() => void setStatus(m, 'kicked')}
 								>
 									Kick
 								</button>
 								<button
 									type="button"
-									className="danger"
+									className="danger small"
 									onClick={() => {
 										if (confirmBan !== m.userId) {
 											setConfirmBan(m.userId);

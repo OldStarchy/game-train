@@ -97,11 +97,11 @@ describe('host and device sessions', () => {
 		network.setOnline(ALICE, false);
 		host.setView(ALICE, { screen: 'lobby', message: 'missed' });
 		await advance(10);
-		expect(alice.getSnapshot().view?.message).toBe('second');
+		expect(alice.getSnapshot().view).toMatchObject({ message: 'second' });
 
 		network.setOnline(ALICE, true);
 		await advance(100);
-		expect(alice.getSnapshot().view?.message).toBe('missed');
+		expect(alice.getSnapshot().view).toMatchObject({ message: 'missed' });
 	});
 
 	it('shows new members the initial view', async () => {
@@ -118,6 +118,31 @@ describe('host and device sessions', () => {
 		host.setMembers([member(ALICE, 'Alice')]);
 		await advance(100);
 		expect(alice.getSnapshot().view).toEqual({ screen: 'lobby', message: 'Welcome' });
+	});
+
+	it('delivers inputs with buzzes stamped in host time, and broadcasts scores', async () => {
+		const { host, device } = setup();
+		host.start();
+		host.setMembers([member(ALICE, 'Alice')]);
+		const received: unknown[] = [];
+		host.onInput((i) => received.push(i));
+		const alice = device(ALICE);
+		alice.start();
+		await advance(1000);
+
+		const pressedAt = Date.now();
+		alice.sendInput(3, { kind: 'buzz' });
+		alice.sendInput(3, { kind: 'text', value: 'hello' });
+		await advance(10);
+		expect(received).toEqual([
+			// The device clock is 1000 ms behind, but calibration corrects for it.
+			{ from: ALICE, promptId: 3, input: { kind: 'buzz', at: pressedAt }, receivedAt: pressedAt },
+			{ from: ALICE, promptId: 3, input: { kind: 'text', value: 'hello' }, receivedAt: pressedAt },
+		]);
+
+		host.setScores([{ userId: ALICE, score: 5 }]);
+		await advance(10);
+		expect(alice.getSnapshot().scores.get(ALICE)).toBe(5);
 	});
 
 	it('ignores messages from devices that are not members', async () => {

@@ -6,6 +6,7 @@ import { DeviceSession, type DeviceSnapshot } from '../../session/deviceSession'
 import { SessionStore } from '../../session/sessionStore';
 import { useServices } from '../../app/services';
 import { useWakeLock } from '../../app/hooks/useWakeLock';
+import { WidgetView } from '../../widgets/WidgetView';
 import { Roster } from '../shared/Roster';
 import { ConnectionBanner } from '../shared/messages';
 
@@ -16,6 +17,7 @@ const IDLE: DeviceSnapshot = {
 	view: undefined,
 	kicked: undefined,
 	clock: undefined,
+	scores: new Map(),
 };
 
 export function PlayerLobby({
@@ -50,6 +52,22 @@ export function PlayerLobby({
 	}
 
 	const ended = snap.room?.status === 'ended';
+	const view = snap.view;
+
+	// While the host is showing something, it takes over the whole screen.
+	if (!ended && view?.screen === 'widget') {
+		return (
+			<main className="widget-screen">
+				<ConnectionBanner state={snap.link} />
+				<WidgetView
+					view={view}
+					emit={(input) => {
+						store.current?.sendInput(view.promptId, input);
+					}}
+				/>
+			</main>
+		);
+	}
 
 	return (
 		<main className="page">
@@ -61,11 +79,12 @@ export function PlayerLobby({
 			<p className="lead">
 				{ended
 					? 'The host has ended this game.'
-					: (snap.view?.message ?? 'Waiting for the host to start…')}
+					: ((view?.screen === 'lobby' ? view.message : undefined) ??
+						'Waiting for the host to start…')}
 			</p>
 			<section className="stack">
 				<h2>Players</h2>
-				<Roster players={snap.roster} highlight={userId} />
+				<Roster players={snap.roster} highlight={userId} scores={snap.scores} />
 			</section>
 			{wakeLock === 'denied' && (
 				<p className="muted">Your screen may turn off. Tap the page to keep it awake.</p>

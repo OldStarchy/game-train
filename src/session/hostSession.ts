@@ -1,5 +1,6 @@
 import { ConnectionTracker } from '../lib/connectionTracker';
 import type { DeviceMessage, RosterEntry, View } from '../protocol/messages';
+import type { WidgetInput } from '../protocol/widgetSchemas';
 import type { UserId } from '../protocol/topics';
 import { Listeners } from '../lib/listeners';
 import type { HostLink, LinkState, Unsubscribe } from '../transport/types';
@@ -18,6 +19,15 @@ export interface RoomInfo {
 export interface HostSnapshot {
 	link: LinkState;
 	roster: readonly RosterEntry[];
+}
+
+/** A member's response to a widget, as received by the host. */
+export interface ReceivedInput {
+	from: UserId;
+	promptId: number;
+	input: WidgetInput;
+	/** Host clock when it arrived. */
+	receivedAt: number;
 }
 
 export interface HostSessionOptions {
@@ -40,6 +50,8 @@ export class HostSession {
 	private readonly views = new Map<UserId, { seq: number; view: View }>();
 	private readonly tracker: ConnectionTracker<UserId>;
 	private readonly changes = new Listeners<[]>();
+	private readonly inputs = new Listeners<[ReceivedInput]>();
+	private scores: { userId: UserId; score: number }[] | undefined;
 	private readonly cleanup: Unsubscribe[] = [];
 	private check: ReturnType<typeof setInterval> | undefined;
 	private lastCheck: number;
@@ -72,6 +84,17 @@ export class HostSession {
 	}
 
 	getSnapshot = (): HostSnapshot => this.snapshot;
+
+	/** Widget responses from members. */
+	onInput(handler: (input: ReceivedInput) => void): Unsubscribe {
+		return this.inputs.add(handler);
+	}
+
+	/** Publish the scoreboard to everyone. Re-sent to devices that reconnect. */
+	setScores(scores: { userId: UserId; score: number }[]): void {
+		this.scores = scores;
+		this.publishScores();
+	}
 
 	subscribe = (listener: () => void): Unsubscribe => this.changes.add(listener);
 
@@ -127,6 +150,7 @@ export class HostSession {
 				this.tracker.seen(from, now);
 				// The device may have missed anything sent while it was away.
 				this.publishRoom();
+				this.publishScores();
 				const current = this.views.get(from);
 				if (current) this.send(from, { type: 'view', ...current });
 				break;
@@ -137,6 +161,15 @@ export class HostSession {
 				break;
 			case 'bye':
 				this.tracker.forget(from);
+				break;
+			case 'input':
+				this.tracker.seen(from, now);
+				this.inputs.emit({
+					from,
+					promptId: message.promptId,
+					input: message.input,
+					receivedAt: now,
+				});
 				break;
 		}
 		if (wasConnected !== this.tracker.isConnected(from, now) || message.type === 'hello') {
@@ -154,6 +187,12 @@ export class HostSession {
 	private publishAll(): void {
 		this.publishRoom();
 		this.publishRoster();
+		this.publishScores();
+	}
+
+	private publishScores(): void {
+		if (!this.scores) return;
+		void this.link.broadcast({ type: 'scores', scores: this.scores }).catch(() => undefined);
 	}
 
 	private publishRoom(): void {
