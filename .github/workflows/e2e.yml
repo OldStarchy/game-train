@@ -1,0 +1,41 @@
+name: E2E
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Local Supabase with this repo's migrations: database, auth, REST and
+      # Realtime. The dashboard, storage, email and logging aren't needed.
+      - name: Start Supabase
+        run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,storage-api,postgres-meta,mailpit
+      # The local stack's well-known development keys; not secrets.
+      - name: Export Supabase settings
+        run: node e2e/supabase-env.mjs >> "$GITHUB_ENV"
+
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+
+      - name: Realtime log
+        if: failure()
+        run: docker logs supabase_realtime_game-train 2>&1 | tail -200
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7

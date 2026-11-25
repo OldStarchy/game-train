@@ -50,7 +50,7 @@ const enginePurity = {
 };
 
 export default defineConfig(
-	{ ignores: ['dist', 'node_modules'] },
+	{ ignores: ['dist', 'node_modules', 'playwright-report', 'test-results', '.features-gen'] },
 	js.configs.recommended,
 	...tseslint.configs.strictTypeChecked,
 	{
@@ -71,13 +71,18 @@ export default defineConfig(
 		},
 	},
 	{
-		files: ['*.js', '*.config.ts'],
+		files: ['*.js', '*.config.ts', '**/*.mjs', 'e2e/**/*.ts'],
 		languageOptions: { globals: globals.node },
 	},
 	{
 		// Root JS config files aren't part of a tsconfig; lint them without type info.
-		files: ['*.js'],
+		files: ['*.js', '**/*.mjs'],
 		extends: [tseslint.configs.disableTypeChecked],
+	},
+	{
+		// Playwright fixtures call `use()`, which the React hooks rule mistakes for a hook.
+		files: ['e2e/**/*.ts'],
+		rules: { 'react-hooks/rules-of-hooks': 'off' },
 	},
 	...boundaryConfigs,
 	enginePurity,
