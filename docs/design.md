@@ -161,6 +161,13 @@ Implementations:
 Every inbound message is validated with a Zod schema at the transport
 boundary. Messages from other devices are untrusted input.
 
+On top of a link, the **session** layer implements the connection protocol:
+a device sends `hello` on every (re)connect and the host re-sends room state
+and that device's current view; devices ping every 5 s, which doubles as the
+heartbeat (a member silent for 15 s is shown as disconnected) and as clock
+calibration samples; views carry a per-device sequence number so stale ones
+are ignored.
+
 ### Access and moderation
 
 The site is public, so access control lives in the database (Postgres
@@ -324,6 +331,8 @@ src/
     segments/   one folder per segment type
   protocol/     message and view types + Zod schemas shared by all roles
   transport/    Transport interface, Supabase and memory implementations
+  session/      connection protocol over a transport: hello, heartbeats, clock
+                calibration, roster and connection tracking. No React.
   widgets/      React components rendering widget view nodes
   roles/        host/, player/, screen/, audience/ — UI per role
   ai/           (later) AiProvider implementations and assistant tools
@@ -337,7 +346,8 @@ Dependency rules (enforced by lint):
 
 - `engine` imports only from `engine`, `protocol`, `lib`.
 - `protocol` imports only from `protocol`, `lib`.
-- `transport` doesn't import from `engine`, `widgets` or `roles`.
+- `transport` doesn't import from `engine`, `session`, `widgets` or `roles`.
+- `session` imports from `protocol`, `transport` and `lib` only.
 - `widgets` doesn't import from `roles` or `engine`.
 
 ## Stack
@@ -387,4 +397,5 @@ Dependency rules (enforced by lint):
 | 2026-11-12 | Limits: 5 open rooms per host, 40 members per room, rooms purged after 24 h idle, anonymous users after 30 days.   |
 | 2026-11-12 | Realtime topics allow broadcast only (no presence); membership changes use Postgres Changes.                       |
 | 2026-11-12 | Emailed sign-in link as a host sign-in method alongside Discord; it needs no third-party setup.                    |
+| 2026-11-12 | A `session` layer holds the connection protocol, separate from transports and UI.                                  |
 | 2026-11-12 | Database policies are tested against embedded Postgres (PGlite) with a shim for Supabase's auth/realtime schemas.  |
