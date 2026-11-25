@@ -55,6 +55,10 @@ export interface Database {
 		Views: { [_ in never]: never };
 		Functions: {
 			can_host: { Args: { [_ in never]: never }; Returns: boolean };
+			save_profile: {
+				Args: { p_display_name: string; p_avatar?: string | null };
+				Returns: undefined;
+			};
 			request_join: {
 				Args: { p_code: string; p_role?: 'player' | 'screen' | 'audience' };
 				Returns: { room_id: string; status: MemberStatus }[];

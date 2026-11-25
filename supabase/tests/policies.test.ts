@@ -332,6 +332,41 @@ describe('visibility', () => {
 	});
 });
 
+describe('profiles', () => {
+	const save = (user: TestUser, name: string, avatar: string | null = null) =>
+		db.as(user, 'select public.save_profile($1, $2)', [name, avatar]);
+	const read = async (user: TestUser) =>
+		(
+			await db.admin<{ display_name: string; avatar: string | null }>(
+				'select display_name, avatar from public.profiles where user_id = $1',
+				[user.id],
+			)
+		)[0];
+
+	it("save_profile creates, then updates, the caller's own profile", async () => {
+		const user = await db.createUser(true);
+		await save(user, 'First', '🦊');
+		expect(await read(user)).toEqual({ display_name: 'First', avatar: '🦊' });
+		await save(user, 'Second');
+		expect(await read(user)).toEqual({ display_name: 'Second', avatar: null });
+	});
+
+	it('save_profile still enforces the column limits', async () => {
+		const user = await db.createUser(true);
+		expect(await failure(save(user, 'x'.repeat(33)))).toMatch(/display_name_length/);
+	});
+
+	// Regression: this is the SQL a PostgREST upsert generates. It must stay
+	// refused, since it would let a client rewrite user_id; clients use
+	// save_profile instead.
+	it('refuses a client upsert that sets user_id', async () => {
+		const user = await db.createUser(true);
+		const upsert = `insert into public.profiles (user_id, display_name) values ($1, 'x')
+			on conflict (user_id) do update set user_id = excluded.user_id, display_name = excluded.display_name`;
+		expect(await failure(db.as(user, upsert, [user.id]))).toMatch(/permission denied/);
+	});
+});
+
 describe('retention', () => {
 	it('purges idle rooms and stale anonymous users, keeping active ones', async () => {
 		const host = await db.createUser(false);

@@ -33,13 +33,15 @@ export async function getProfile(client: Client, userId: string): Promise<Profil
 	return data ? toProfile(data) : null;
 }
 
-export async function saveProfile(client: Client, profile: Profile): Promise<void> {
-	const { error } = await client
-		.from('profiles')
-		.upsert(
-			{ user_id: profile.userId, display_name: profile.name, avatar: profile.avatar },
-			{ onConflict: 'user_id' },
-		);
+/** Create or update the signed-in user's profile. */
+export async function saveProfile(
+	client: Client,
+	profile: { name: string; avatar: string | null },
+): Promise<void> {
+	const { error } = await client.rpc('save_profile', {
+		p_display_name: profile.name,
+		p_avatar: profile.avatar,
+	});
 	if (error) throw toBackendError(error);
 }
 
