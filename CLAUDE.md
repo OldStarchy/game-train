@@ -42,4 +42,13 @@ in the same PR.
 ## Commits
 
 Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`,
-`chore:`). Small, focused PRs.
+`chore:`). Small, focused commits.
+
+Commit and push straight to `main`; no PR or code review is needed. Run
+`npm run check` first. Pushing to `main` deploys: new migrations are applied
+to the production database, then the site is published. Watch the Deploy
+workflow after pushing and fix any failure.
+
+The Supabase project is on the free plan and pauses after about a week
+without activity; while paused, the migrate job fails with "tenant/user not
+found". Restore the project, then re-run the job.
