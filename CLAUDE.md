@@ -13,6 +13,9 @@ in the same PR.
 - `npm run check`: typecheck + lint + tests (run before every commit)
 - `npm run build`: production build
 - `npm test`: tests in watch mode
+- `npm run e2e`: Gherkin end-to-end scenarios (`e2e/features`) against a
+  local Supabase stack; needs Docker, see `e2e/README.md`. They run in CI on
+  every push (`.github/workflows/e2e.yml`).
 
 ## Rules
 
@@ -36,6 +39,11 @@ in the same PR.
   exhaustive `switch` (use `assertNever` from `src/lib`).
 - **New segment types** follow the structure of an existing one in
   `src/engine/segments/`; keep config schema, reducer, views and tests together.
+- **End-to-end coverage.** A user-facing flow that crosses devices (host and
+  players) gets a scenario in `e2e/features/*.feature`, written in plain
+  language. Reuse existing steps in `e2e/steps/` where they fit. Unit tests
+  can't catch problems that only appear with real Supabase (Realtime join
+  checks, PostgREST-generated SQL); these scenarios do.
 - Choose the most appropriate tool for a problem, not the quickest one to
   write. Implementation effort is cheap here; maintainability is not.
 

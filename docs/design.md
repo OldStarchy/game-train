@@ -367,8 +367,10 @@ Dependency rules (enforced by lint):
   protocol schemas, so URLs are validated like any other untrusted input)
 - Zod for schemas
 - Supabase JS client
-- Vitest for unit tests; Playwright later for multi-device end-to-end tests
-  (several browser contexts as host + players)
+- Vitest for unit tests
+- Gherkin end-to-end scenarios (`e2e/features`), run by Playwright via
+  playwright-bdd: host and players in separate browser contexts, against a
+  local Supabase stack started in CI
 - ESLint + Prettier
 - GitHub Actions: CI on PRs, deploy to GitHub Pages from `main`
 
@@ -421,3 +423,4 @@ Dependency rules (enforced by lint):
 | 2026-11-26 | Buzz timestamps are clamped to [buzzer opened, press arrived], so a tampered device can't claim an impossible time.                                |
 | 2026-11-26 | Host game state is saved in the host browser's local storage until the host lease (Supabase snapshot) exists.                                      |
 | 2026-11-26 | Colour-flash strobe is capped at 2.5 flashes/s (under WCAG 2.3.1's 3/s) and respects reduced motion.                                               |
+| 2026-11-26 | End-to-end tests are Gherkin scenarios run with playwright-bdd against a local Supabase stack in CI.                                               |
